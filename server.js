@@ -27,6 +27,36 @@ db.exec(`
   )
 `);
 
+// Funzione helper per chiamare Gemini con fallback automatico sui modelli in caso di sovraccarico
+async function callGeminiWithFallback(apiKey, prompt, systemInstruction) {
+  // Tentativo 1: gemini-3.8-flash
+  let modelsToTry = ['gemini-3.8-flash', 'gemini-1.5-flash', 'gemini-2.5-flash'];
+
+  for (const model of modelsToTry) {
+    try {
+      const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          generationConfig: { responseMimeType: "application/json" }
+        })
+      });
+
+      const geminiData = await geminiRes.json();
+      
+      if (!geminiData.error) {
+        return geminiData; // Successo!
+      }
+      console.warn(`Modello ${model} occupato o non disponibile, provo il successivo...`, geminiData.error.message);
+    } catch (err) {
+      console.warn(`Errore con il modello ${model}:`, err.message);
+    }
+  }
+  throw new Error("Tutti i modelli Gemini sono attualmente sovraccarichi. Riprova tra pochi secondi.");
+}
+
 // ENDPOINT 1: Trova il prossimo contatto tramite Gemini API
 app.post('/api/next-lead', async (req, res) => {
   try {
@@ -65,23 +95,8 @@ REGOLE TASSATIVE:
     const prompt = `Trova 1 studio dentistico a "${city}". 
 ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existingList.slice(-40))}.`;
 
-    // USIAMO IL MODELLO ESATTO gemini-3.8-flash SENZA TOOLS PER EVITARE BLOCCHI DI QUOTA
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        systemInstruction: { parts: [{ text: systemInstruction }] },
-        generationConfig: { responseMimeType: "application/json" }
-      })
-    });
-
-    const geminiData = await geminiRes.json();
-    
-    if (geminiData.error) {
-      console.error('Errore Gemini API:', geminiData.error);
-      return res.status(500).json({ error: geminiData.error.message });
-    }
+    // Chiamata protetta con fallback automatico
+    const geminiData = await callGeminiWithFallback(GEMINI_API_KEY, prompt, systemInstruction);
 
     if (!geminiData.candidates || !geminiData.candidates[0].content) {
       return res.status(500).json({ error: 'Nessun contatto trovato per questa città.' });
@@ -114,7 +129,7 @@ ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existin
 
   } catch (error) {
     console.error('Errore API:', error);
-    res.status(500).json({ error: 'Errore durante la ricerca del contatto.' });
+    res.status(500).json({ error: error.message || 'Errore durante la ricerca del contatto.' });
   }
 });
 
