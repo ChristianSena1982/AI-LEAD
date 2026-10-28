@@ -27,7 +27,7 @@ db.exec(`
   )
 `);
 
-// ENDPOINT 1: Trova il prossimo contatto tramite Gemini API (Usando il modello corretto)
+// ENDPOINT 1: Trova il prossimo contatto tramite Gemini API (Usando il modello stabile 1.5-flash)
 app.post('/api/next-lead', async (req, res) => {
   try {
     const { city, setterName } = req.body;
@@ -62,8 +62,8 @@ REGOLE TASSATIVE:
     const prompt = `Trova 1 studio dentistico a "${city}". 
 ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existingList.slice(-40))}.`;
 
-    // ENDPOINT AGGIORNATO AL MODELLO GEMINI 2.5 FLASH STABILE
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    // USIAMO IL MODELLO STABILE 1.5-FLASH
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
