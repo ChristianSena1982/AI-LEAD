@@ -26,19 +26,7 @@ db.exec(`
   )
 `);
 
-// Elenco rigoroso di studi dentistici reali al 100%. Se un dato non è sicuro, c'è "da chiedere".
-const VERIFIED_STUDIOS = {
-  roma: [
-    { name: "Studio Dentistico Dott. Marco Squicciarini", phone: "+39 06 42016852", whatsapp: "+39 335 6620668", website: "https://www.marcosquicciarini.com", email: "info@marcosquicciarini.com", address: "Via Emilia, 47, 00187 Roma" },
-    { name: "Studio Odontoiatrico Dott. Alessandro Rossi", phone: "+39 06 3211234", whatsapp: "da chiedere", website: "https://www.studiodentisticorossiroma.it", email: "info@rossiroma.it", address: "Via Cola di Rienzo, 212, 00192 Roma" },
-    { name: "Studio Dentistico Flaminio", phone: "+39 06 3225890", whatsapp: "da chiedere", website: "https://www.studiodentisticoflaminio.it", email: "segreteria@flaminiodent.it", address: "Via Flaminia, 36, 00196 Roma" }
-  ],
-  milano: [
-    { name: "Studio Dentistico Associato Milano Centro", phone: "+39 02 8901234", whatsapp: "da chiedere", website: "https://www.studiodentisticomilanocentro.it", email: "info@milanocentro.it", address: "Corso Vittorio Emanuele II, 22, 20122 Milano" }
-  ]
-};
-
-// ENDPOINT 1: Trova il prossimo contatto in modo istantaneo e rigoroso
+// ENDPOINT 1: Trova il contatto con blocco totale dei dati inventati
 app.post('/api/next-lead', async (req, res) => {
   try {
     const { city, setterName } = req.body;
@@ -47,61 +35,71 @@ app.post('/api/next-lead', async (req, res) => {
       return res.status(400).json({ error: 'Specifica una città o provincia.' });
     }
 
-    const cityKey = city.toLowerCase().trim();
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({ error: 'Chiave API Gemini non configurata su Render.' });
+    }
 
     // Esclude i contatti già salvati nel DB condiviso per quella città
     const stmtExisting = db.prepare('SELECT name FROM contacts WHERE LOWER(city) = LOWER(?)');
     const existingContacts = stmtExisting.all(city);
-    const existingList = existingContacts.map(c => c.name);
+    const existingList = existingContacts.map(c => c.name).filter(n => n !== 'da chiedere');
 
-    // Cerca nel pool verificato uno studio non ancora contattato
-    let pool = VERIFIED_STUDIOS[cityKey] || [];
-    let leadData = pool.find(s => !existingList.includes(s.name));
+    const systemInstruction = `Sei un assistente AI B2B per studi dentistici.
+Trova UN SINGOLO studio dentistico realmente esistente nella città richiesta.
 
-    // Se la città non è nel nostro elenco verificato, usiamo l'AI in modo protetto o restituiamo uno studio reale con "da chiedere"
-    if (!leadData) {
-      const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-      if (GEMINI_API_KEY) {
-        try {
-          const prompt = `Fornisci i dati reali di 1 studio dentistico a "${city}". Se un numero, telefono o sito non è certo al 100%, scrivi tassativamente "da chiedere". Restituisci SOLO un JSON con chiavi: name, phone, whatsapp, website, email, address.`;
-          
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 3500);
+CAMPI RICHIESTI (formato JSON rigoroso):
+- name: Nome esatto e reale dello studio
+- phone: Numero di telefono fisso (Se non sei assolutamente certo al 100%, scrivi "da chiedere")
+- whatsapp: Numero mobile WhatsApp (Se non sei assolutamente certo al 100%, scrivi "da chiedere")
+- website: URL del sito web ufficiale (Se non sei assolutamente certo al 100%, scrivi "da chiedere")
+- email: Indirizzo email pubblico (Se non sei assolutamente certo al 100%, scrivi "da chiedere")
+- address: Indirizzo completo (Se non sei certo, scrivi "da chiedere")
 
-          const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { responseMimeType: "application/json" }
-            }),
-            signal: controller.signal
-          });
-          clearTimeout(timer);
+REGOLE TASSATIVE:
+1. È SEVERAMENTE VIETATO INVENTARE TELEFONI, SITI O EMAIL. Se non hai la certezza assoluta, devi scrivere tassativamente la stringa esatta "da chiedere".
+2. Restituisci ESCLUSIVAMENTE un oggetto JSON valido.`;
 
-          const geminiData = await geminiRes.json();
-          if (!geminiData.error && geminiData.candidates?.[0]?.content?.parts?.[0]?.text) {
-            leadData = JSON.parse(geminiData.candidates[0].content.parts[0].text);
-          }
-        } catch (e) {
-          // Fallback istantaneo se l'API risponde con ritardo o sovraccarico
-        }
-      }
+    const prompt = `Trova 1 studio dentistico a "${city}". 
+ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existingList.slice(-40))}.`;
 
-      // Se non disponibile, compila con dati reali minimi e "da chiedere"
-      if (!leadData || !leadData.name || existingList.includes(leadData.name)) {
-        leadData = {
-          name: `Studio Dentistico ${city.charAt(0).toUpperCase() + city.slice(1)}`,
-          phone: "da chiedere",
-          whatsapp: "da chiedere",
-          website: "da chiedere",
-          email: "da chiedere",
-          address: `Città di ${city}`
-        };
-      }
+    // Timeout di sicurezza a 4 secondi per la massima velocità
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+
+    let geminiRes;
+    try {
+      geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          generationConfig: { responseMimeType: "application/json" }
+        }),
+        signal: controller.signal
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      return res.status(504).json({ error: "Tempo scaduto nella ricerca. Riprova subito." });
+    }
+    clearTimeout(timer);
+
+    const geminiData = await geminiRes.json();
+    
+    if (geminiData.error) {
+      console.error('Errore Gemini API:', geminiData.error);
+      return res.status(500).json({ error: geminiData.error.message });
     }
 
-    // Salvataggio nel database SQLite condiviso per i 20 setter
+    if (!geminiData.candidates || !geminiData.candidates[0].content) {
+      return res.status(500).json({ error: 'Nessun contatto trovato per questa città.' });
+    }
+
+    const responseText = geminiData.candidates[0].content.parts[0].text.trim();
+    const leadData = JSON.parse(responseText);
+
+    // Salvataggio nel database SQLite condiviso
     const insertStmt = db.prepare(`
       INSERT INTO contacts (setterName, city, name, phone, whatsapp, website, email, address, status, outcomeNotes)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'In Attesa', '')
@@ -124,8 +122,8 @@ app.post('/api/next-lead', async (req, res) => {
     res.json({ lead: newLead });
 
   } catch (error) {
-    console.error('Errore:', error);
-    res.status(500).json({ error: 'Errore durante la ricerca del contatto.' });
+    console.error('Errore API:', error);
+    res.status(500).json({ error: error.message || 'Errore durante la ricerca del contatto.' });
   }
 });
 
