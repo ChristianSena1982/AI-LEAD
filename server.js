@@ -26,7 +26,7 @@ db.exec(`
   )
 `);
 
-// ENDPOINT 1: Trova il prossimo contatto (Puntato su v1 e gemini-2.5-flash)
+// ENDPOINT 1: Trova il prossimo contatto con il modello ufficiale richiesto da Google
 app.post('/api/next-lead', async (req, res) => {
   try {
     const { city, setterName } = req.body;
@@ -63,8 +63,8 @@ REGOLE TASSATIVE:
     const prompt = `Trova 1 studio dentistico a "${city}". 
 ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existingList.slice(-40))}.`;
 
-    // Endpoint v1 stabile con gemini-2.5-flash
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    // Utilizzo rigoroso del modello imposto da Google
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
