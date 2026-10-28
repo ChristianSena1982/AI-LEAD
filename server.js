@@ -1,11 +1,15 @@
 const express = require('express');
 const cors = require('cors');
 const Database = require('better-sqlite3');
+const { GoogleGenAI } = require('@google/genai');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 app.use(express.static('public'));
+
+// Inizializza l'SDK ufficiale di Google Gen AI
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // Inizializza il Database SQLite locale
 const db = new Database('leads.db');
@@ -27,7 +31,7 @@ db.exec(`
   )
 `);
 
-// ENDPOINT 1: Trova il prossimo contatto tramite Gemini API (Usando il modello stabile 1.5-flash)
+// ENDPOINT 1: Trova il prossimo contatto tramite SDK ufficiale Gemini
 app.post('/api/next-lead', async (req, res) => {
   try {
     const { city, setterName } = req.body;
@@ -35,8 +39,6 @@ app.post('/api/next-lead', async (req, res) => {
     if (!city) {
       return res.status(400).json({ error: 'Specifica una città o provincia.' });
     }
-
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
     // Recupera i contatti già salvati per escluderli
     const stmtExisting = db.prepare('SELECT name FROM contacts WHERE LOWER(city) = LOWER(?)');
@@ -62,30 +64,18 @@ REGOLE TASSATIVE:
     const prompt = `Trova 1 studio dentistico a "${city}". 
 ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existingList.slice(-40))}.`;
 
-    // USIAMO IL MODELLO STABILE 1.5-FLASH
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
+    // Chiamata pulita tramite l'SDK ufficiale di Google con Grounding Google Search attivo
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        systemInstruction: systemInstruction,
         tools: [{ googleSearch: {} }],
-        systemInstruction: { parts: [{ text: systemInstruction }] },
-        generationConfig: { responseMimeType: "application/json" }
-      })
+        responseMimeType: 'application/json'
+      }
     });
 
-    const geminiData = await geminiRes.json();
-    
-    if (geminiData.error) {
-      console.error('Errore Gemini API:', geminiData.error);
-      return res.status(500).json({ error: geminiData.error.message });
-    }
-
-    if (!geminiData.candidates || !geminiData.candidates[0].content) {
-      return res.status(500).json({ error: 'Nessun contatto trovato per questa città.' });
-    }
-
-    const responseText = geminiData.candidates[0].content.parts[0].text.trim();
+    const responseText = response.text.trim();
     const leadData = JSON.parse(responseText);
 
     // Salva nel database SQLite con stato iniziale "In Attesa"
@@ -111,8 +101,8 @@ ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existin
     res.json({ lead: newLead });
 
   } catch (error) {
-    console.error('Errore API:', error);
-    res.status(500).json({ error: 'Errore durante la ricerca del contatto.' });
+    console.error('Errore API Gemini:', error);
+    res.status(500).json({ error: 'Errore durante la ricerca del contatto con l\'AI.' });
   }
 });
 
