@@ -1,17 +1,15 @@
-const express = require('express'); 
+const express = require('express');
 const cors = require('cors');
 const Database = require('better-sqlite3');
-const { GoogleGenAI } = require('@google/genai');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 app.use(express.static('public'));
 
-// Inizializza il Database SQLite locale (file leads.db)
+// Inizializza il Database SQLite locale
 const db = new Database('leads.db');
 
-// Crea la tabella se non esiste
 db.exec(`
   CREATE TABLE IF NOT EXISTS contacts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,10 +26,9 @@ db.exec(`
   )
 `);
 
-// Inizializzazione Gemini API
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// ENDPOINT 1: Trova il prossimo contatto escludendo quelli già presenti nel DB
+// ENDPOINT 1: Trova il prossimo contatto tramite Gemini API (con Search Grounding via REST)
 app.post('/api/next-lead', async (req, res) => {
   try {
     const { city, setterName } = req.body;
@@ -40,7 +37,6 @@ app.post('/api/next-lead', async (req, res) => {
       return res.status(400).json({ error: 'Specifica una città o provincia.' });
     }
 
-    // Recupera i contatti già salvati per la città indicata per non ripeterli
     const stmtExisting = db.prepare('SELECT name, phone FROM contacts WHERE LOWER(city) = LOWER(?)');
     const existingContacts = stmtExisting.all(city);
     const existingList = existingContacts.map(c => `${c.name} (${c.phone})`).join(', ');
@@ -71,24 +67,32 @@ Rispondi ESCLUSIVAMENTE in formato JSON valido senza testo o blocchi markdown ex
 }
 `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }] // Google Search Grounding per trovare dati reali aggiornati
-      }
+    // Chiamata REST diretta a Gemini con Google Search Grounding abilitato
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        tools: [{ googleSearch: {} }]
+      })
     });
 
-    const responseText = response.text.trim();
+    const geminiData = await geminiRes.json();
+    
+    if (!geminiData.candidates || !geminiData.candidates[0].content) {
+      return res.status(500).json({ error: 'Risposta non valida da Gemini.' });
+    }
+
+    const responseText = geminiData.candidates[0].content.parts[0].text.trim();
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     
     if (!jsonMatch) {
-      return res.status(500).json({ error: 'Impossibile estrarre i dati. Riprova.' });
+      return res.status(500).json({ error: 'Impossibile estrarre i dati in JSON. Riprova.' });
     }
 
     const leadData = JSON.parse(jsonMatch[0]);
 
-    // Verifica se per caso esiste già
+    // Verifica se esiste già
     const checkStmt = db.prepare('SELECT * FROM contacts WHERE LOWER(name) = LOWER(?) AND LOWER(city) = LOWER(?)');
     const exists = checkStmt.get(leadData.name, city);
 
@@ -96,7 +100,7 @@ Rispondi ESCLUSIVAMENTE in formato JSON valido senza testo o blocchi markdown ex
       return res.json({ lead: exists });
     }
 
-    // Salva il contatto nel database SQLite locale condiviso
+    // Salva nel database SQLite
     const insertStmt = db.prepare(`
       INSERT INTO contacts (setterName, city, name, phone, whatsapp, website, email, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'da_chiamare')
@@ -123,7 +127,7 @@ Rispondi ESCLUSIVAMENTE in formato JSON valido senza testo o blocchi markdown ex
   }
 });
 
-// ENDPOINT 2: Registra esito della chiamata
+// ENDPOINT 2: Registra esito
 app.post('/api/save-outcome', (req, res) => {
   try {
     const { contactId, status, notes } = req.body;
