@@ -47,25 +47,26 @@ app.post('/api/next-lead', async (req, res) => {
     const existingList = existingContacts.map(c => c.name).filter(n => n !== 'da chiedere');
 
     const systemInstruction = `Sei un assistente AI B2B specializzato nel settore degli studi dentistici e odontoiatrici.
-Devi estrarre I DATI REALI (o verosimili operativi) di UN SINGOLO studio dentistico operativo nella città o provincia richiesta.
+Devi estrarre I DATI REALI di UN SINGOLO studio dentistico operativo nella città o provincia richiesta.
 
 CAMPI RICHIESTI:
 - name: Nome esatto dello studio/dentista
-- phone: Numero di telefono principale
+- phone: Numero di telefono fisso o principale
 - whatsapp: Numero mobile WhatsApp oppure "da chiedere"
 - website: URL del sito web commerciale oppure "da chiedere"
 - email: Indirizzo email pubblico oppure "da chiedere"
-- address: Indirizzo (via e civico) della città richiesta
+- address: Indirizzo (via e civico) o "da chiedere"
 
 REGOLE TASSATIVE:
-1. Per qualsiasi dato non disponibile, imposta "da chiedere".
-2. Restituisci ESCLUSIVAMENTE un oggetto JSON valido con le chiavi richieste (name, phone, whatsapp, website, email, address).`;
+1. Per qualsiasi dato mancante, imposta TASSATIVAMENTE la stringa "da chiedere".
+2. NON inventare mai numeri di telefono, email o URL.
+3. Restituisci ESCLUSIVAMENTE un oggetto JSON valido.`;
 
-    const prompt = `Fornisci i dati di 1 studio dentistico a "${city}". 
-ESCLUDI i seguenti studi già contattati: ${JSON.stringify(existingList.slice(-40))}.`;
+    const prompt = `Trova 1 studio dentistico a "${city}". 
+ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existingList.slice(-40))}.`;
 
-    // Chiamata standard senza tools per non saturare la quota di Search Grounding
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    // USIAMO IL MODELLO ESATTO gemini-3.8-flash SENZA TOOLS PER EVITARE BLOCCHI DI QUOTA
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
