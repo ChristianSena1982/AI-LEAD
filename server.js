@@ -1,9 +1,43 @@
+const express = require('express');
+const cors = require('cors');
+const Database = require('better-sqlite3');
+
+const app = express();
+app.use(express.json());
+app.use(cors());
+app.use(express.static('public'));
+
+// Inizializza il Database SQLite locale
+const db = new Database('leads.db');
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS contacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    setterName TEXT,
+    city TEXT,
+    name TEXT,
+    phone TEXT,
+    whatsapp TEXT,
+    website TEXT,
+    email TEXT,
+    status TEXT DEFAULT 'da_chiamare',
+    outcomeNotes TEXT,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// ENDPOINT 1: Trova il prossimo contatto tramite Gemini API (lato server sicuro)
 app.post('/api/next-lead', async (req, res) => {
   try {
     const { city, setterName } = req.body;
-    if (!city) return res.status(400).json({ error: 'Specifica una città o provincia.' });
 
-    // Recupera contatti già esistenti per l'esclusione
+    if (!city) {
+      return res.status(400).json({ error: 'Specifica una città o provincia.' });
+    }
+
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+    // Recupera i contatti già salvati per escluderli
     const stmtExisting = db.prepare('SELECT name, phone FROM contacts WHERE LOWER(city) = LOWER(?)');
     const existingContacts = stmtExisting.all(city);
     const existingList = existingContacts.map(c => `${c.name} (${c.phone})`).join(', ');
@@ -34,8 +68,7 @@ Rispondi ESCLUSIVAMENTE in formato JSON valido senza testo o blocchi markdown ex
 }
 `;
 
-    // Esegue la chiamata all'API Gemini LATO SERVER usando process.env.GEMINI_API_KEY
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -44,20 +77,27 @@ Rispondi ESCLUSIVAMENTE in formato JSON valido senza testo o blocchi markdown ex
       })
     });
 
-    const geminiData = await response.json();
-
+    const geminiData = await geminiRes.json();
+    
     if (geminiData.error) {
-      console.error("Errore da Google Gemini:", geminiData.error);
+      console.error('Errore Gemini API:', geminiData.error);
       return res.status(500).json({ error: geminiData.error.message });
+    }
+
+    if (!geminiData.candidates || !geminiData.candidates[0].content) {
+      return res.status(500).json({ error: 'Risposta non valida da Gemini.' });
     }
 
     const responseText = geminiData.candidates[0].content.parts[0].text.trim();
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return res.status(500).json({ error: 'Impossibile estrarre i dati dal motore AI.' });
+    
+    if (!jsonMatch) {
+      return res.status(500).json({ error: 'Impossibile estrarre i dati in JSON. Riprova.' });
+    }
 
     const leadData = JSON.parse(jsonMatch[0]);
 
-    // Salva nel DB SQLite
+    // Salva nel database SQLite
     const insertStmt = db.prepare(`
       INSERT INTO contacts (setterName, city, name, phone, whatsapp, website, email, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'da_chiamare')
@@ -79,7 +119,22 @@ Rispondi ESCLUSIVAMENTE in formato JSON valido senza testo o blocchi markdown ex
     res.json({ lead: newLead });
 
   } catch (error) {
-    console.error('Errore durante la ricerca:', error);
-    res.status(500).json({ error: 'Errore interno del server durante la ricerca.' });
+    console.error('Errore API:', error);
+    res.status(500).json({ error: 'Errore durante la ricerca del contatto.' });
   }
 });
+
+// ENDPOINT 2: Registra esito
+app.post('/api/save-outcome', (req, res) => {
+  try {
+    const { contactId, status, notes } = req.body;
+    const updateStmt = db.prepare('UPDATE contacts SET status = ?, outcomeNotes = ? WHERE id = ?');
+    updateStmt.run(status, notes, contactId);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Errore durante il salvataggio.' });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server attivo sulla porta ${PORT}`));
