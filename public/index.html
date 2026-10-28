@@ -1,753 +1,270 @@
 <!DOCTYPE html>
-<html lang="it" class="h-full bg-slate-950 text-slate-100">
+<html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DentalSetter AI - Piattaforma Chat & Lead CRM</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Inter', 'sans-serif'] },
-          colors: {
-            brand: {
-              50: '#f0f9ff',
-              100: '#e0f2fe',
-              500: '#0ea5e9',
-              600: '#0284c7',
-              700: '#0369a1',
-            }
-          }
-        }
-      }
-    }
-  </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DentalSetter AI - Assistente Outbound</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="h-full flex flex-col font-sans antialiased bg-slate-950 text-slate-100 overflow-hidden">
-
-  <!-- Top Header Navigation -->
-  <header class="bg-slate-900 border-b border-slate-800 px-4 md:px-6 py-3 flex items-center justify-between shrink-0">
-    <div class="flex items-center space-x-3">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-cyan-500/20">
-        <i class="fa-solid fa-tooth"></i>
-      </div>
-      <div>
-        <h1 class="text-base font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent leading-tight">
-          DentalSetter AI
-        </h1>
-        <p class="text-[11px] text-slate-400">Assistente AI per Cold Calling & Outbound Studi Dentistici</p>
-      </div>
-    </div>
-
-    <!-- Active Setter Selector & DB Stats -->
-    <div class="flex items-center space-x-4">
-      <div class="hidden sm:flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 text-xs text-slate-300">
-        <i class="fa-solid fa-user text-cyan-400"></i>
-        <span class="text-slate-400">Setter attivo:</span>
-        <select id="activeSetterSelect" class="bg-transparent font-medium focus:outline-none text-cyan-300 cursor-pointer">
-          <option value="Marco (Setter 1)" class="bg-slate-900 text-slate-200">Marco (Setter 1)</option>
-          <option value="Sara (Setter 2)" class="bg-slate-900 text-slate-200">Sara (Setter 2)</option>
-          <option value="Luca (Setter 3)" class="bg-slate-900 text-slate-200">Luca (Setter 3)</option>
-        </select>
-      </div>
-
-      <!-- Navigation Tabs -->
-      <nav class="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700/60 text-xs">
-        <button id="tabChatBtn" onclick="switchView('chat')" class="px-3 py-1.5 rounded-lg font-medium transition bg-cyan-600 text-white shadow">
-          <i class="fa-solid fa-comments me-1.5"></i>Chat AI & Scheda
-        </button>
-        <button id="tabDbBtn" onclick="switchView('db')" class="px-3 py-1.5 rounded-lg font-medium text-slate-300 hover:text-white transition">
-          <i class="fa-solid fa-database me-1.5"></i>DB Condiviso (<span id="dbCountBadge">0</span>)
-        </button>
-      </nav>
-    </div>
-  </header>
-
-  <!-- MAIN APP AREA (Dual Panel) -->
-  <main class="flex-1 flex overflow-hidden relative">
-
-    <!-- VIEW 1: DUAL PANEL CHAT + LEAD CARD -->
-    <div id="viewChat" class="flex-1 flex w-full h-full">
-      
-      <!-- LEFT PANEL: AI Chat Workspace -->
-      <section class="flex-1 flex flex-col bg-slate-900/60 border-r border-slate-800 min-w-0 h-full">
-        
-        <!-- Chat Banner Info -->
-        <div class="px-4 py-2.5 bg-slate-900/90 border-b border-slate-800/80 flex justify-between items-center text-xs">
-          <div class="flex items-center space-x-2 text-slate-300">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Gemini AI Search Grounding: <strong>Attivo</strong></span>
-          </div>
-          <button onclick="clearChatHistory()" class="text-[11px] text-slate-400 hover:text-rose-400 transition">
-            <i class="fa-solid fa-rotate-right me-1"></i>Reset Chat
-          </button>
-        </div>
-
-        <!-- Chat Stream Area -->
-        <div id="chatStream" class="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 text-sm">
-          
-          <!-- Welcome Message -->
-          <div class="flex items-start space-x-3 max-w-2xl">
-            <div class="w-8 h-8 rounded-lg bg-cyan-600 flex items-center justify-center text-white shrink-0 text-xs font-bold">
-              AI
+<body class="bg-slate-950 text-white min-h-screen flex flex-col">
+    
+    <!-- Header -->
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-600 p-2.5 rounded-xl shadow-lg shadow-blue-600/30">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
             </div>
-            <div class="bg-slate-800/90 border border-slate-700/70 p-4 rounded-2xl rounded-tl-none text-slate-200 space-y-2 leading-relaxed shadow-sm">
-              <p class="font-medium text-cyan-300">Ciao Setter! Pronti per la sessione di chiamate?</p>
-              <p class="text-xs text-slate-300">
-                Scrivimi semplicemente la <strong>città o provincia</strong> target (es. <em>Milano, Roma, Brescia, Vlorë, Torino</em>). 
-                Cercherò sul web uno studio dentistico reale ed estrarrò la scheda contatto escludendo quelli già salvati nel Database condiviso!
-              </p>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Chat Input Form -->
-        <div class="p-4 bg-slate-900 border-t border-slate-800/80">
-          <form onsubmit="handleUserSubmit(event)" class="flex items-center gap-2">
-            <input type="text" id="userInput" placeholder="Scrivi una città/provincia (es: Roma, Bologna, Bari)..." 
-                   class="flex-1 bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 text-slate-100 placeholder-slate-500 shadow-inner">
-            <button type="submit" id="sendBtn" class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium px-5 py-3 rounded-xl shadow-lg shadow-cyan-500/20 transition flex items-center space-x-2 shrink-0">
-              <span>Chiedi all'AI</span>
-              <i class="fa-solid fa-paper-plane text-xs"></i>
-            </button>
-          </form>
-          <p class="text-[10px] text-slate-500 mt-2 text-center">
-            <i class="fa-solid fa-shield-halved me-1"></i>I contatti restituiti vengono salvati automaticamente per evitare doppie chiamate da parte di altri setter.
-          </p>
-        </div>
-      </section>
-
-      <!-- RIGHT PANEL: Current Active Lead Card -->
-      <section class="w-full lg:w-[460px] xl:w-[500px] bg-slate-950 flex flex-col h-full border-l border-slate-800/80 overflow-y-auto shrink-0 p-5">
-        
-        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
-          <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center">
-            <i class="fa-solid fa-address-card text-cyan-400 me-2 text-base"></i> Scheda Contatto Attiva
-          </h2>
-          <span id="leadStatusTag" class="hidden text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-950 text-amber-300 border border-amber-800">
-            In Attesa di Esito
-          </span>
-        </div>
-
-        <!-- Empty Lead State -->
-        <div id="leadEmptyState" class="flex-1 flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-slate-800/80 rounded-2xl bg-slate-900/20 my-auto">
-          <div class="w-14 h-14 rounded-2xl bg-slate-900 flex items-center justify-center text-slate-600 text-2xl mb-3 border border-slate-800">
-            <i class="fa-solid fa-headset"></i>
-          </div>
-          <h3 class="text-sm font-semibold text-slate-300">Nessun contatto attivo sulla scheda</h3>
-          <p class="text-xs text-slate-500 mt-1 max-w-xs">
-            Scrivi una città nella chat a sinistra per richiedere il primo contatto da chiamare.
-          </p>
-        </div>
-
-        <!-- Active Lead Card Details -->
-        <div id="leadActiveContent" class="hidden space-y-5">
-          
-          <!-- Studio Header -->
-          <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-sm">
-            <span id="leadCityBadge" class="inline-block text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-2.5 py-0.5 rounded-full mb-2">
-              Milano
-            </span>
-            <h3 id="leadName" class="text-xl font-bold text-white">Studio Dentistico</h3>
-            <p id="leadAddress" class="text-xs text-slate-400 mt-1 flex items-center">
-              <i class="fa-solid fa-location-dot text-slate-500 me-1.5 shrink-0"></i> 
-              <span>da chiedere</span>
-            </p>
-          </div>
-
-          <!-- Mandatory Data Fields Grid -->
-          <div class="grid grid-cols-1 gap-2.5">
-            
-            <!-- Telephone -->
-            <div class="bg-slate-900/80 border border-slate-800 p-3 rounded-xl flex items-center justify-between">
-              <div>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Telefono Fisso / Diretto</p>
-                <p id="fieldPhone" class="text-sm font-semibold text-slate-200 mt-0.5">da chiedere</p>
-              </div>
-              <a id="linkPhone" href="#" class="p-2 bg-emerald-600/20 text-emerald-400 border border-emerald-800/50 rounded-lg hover:bg-emerald-600/30 transition hidden">
-                <i class="fa-solid fa-phone"></i>
-              </a>
-            </div>
-
-            <!-- WhatsApp -->
-            <div class="bg-slate-900/80 border border-slate-800 p-3 rounded-xl flex items-center justify-between">
-              <div>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Numero WhatsApp</p>
-                <p id="fieldWhatsapp" class="text-sm font-semibold text-slate-200 mt-0.5">da chiedere</p>
-              </div>
-              <a id="linkWhatsapp" href="#" target="_blank" class="p-2 bg-green-600/20 text-green-400 border border-green-800/50 rounded-lg hover:bg-green-600/30 transition hidden">
-                <i class="fa-brands fa-whatsapp"></i>
-              </a>
-            </div>
-
-            <!-- Website -->
-            <div class="bg-slate-900/80 border border-slate-800 p-3 rounded-xl flex items-center justify-between truncate">
-              <div class="truncate me-2">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sito Web</p>
-                <p id="fieldWebsite" class="text-sm font-semibold text-slate-200 mt-0.5 truncate">da chiedere</p>
-              </div>
-              <a id="linkWebsite" href="#" target="_blank" class="p-2 bg-blue-600/20 text-blue-400 border border-blue-800/50 rounded-lg hover:bg-blue-600/30 transition shrink-0 hidden">
-                <i class="fa-solid fa-globe"></i>
-              </a>
-            </div>
-
-            <!-- Email -->
-            <div class="bg-slate-900/80 border border-slate-800 p-3 rounded-xl flex items-center justify-between truncate">
-              <div class="truncate me-2">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email</p>
-                <p id="fieldEmail" class="text-sm font-semibold text-slate-200 mt-0.5 truncate">da chiedere</p>
-              </div>
-              <a id="linkEmail" href="#" class="p-2 bg-purple-600/20 text-purple-400 border border-purple-800/50 rounded-lg hover:bg-purple-600/30 transition shrink-0 hidden">
-                <i class="fa-solid fa-envelope"></i>
-              </a>
-            </div>
-
-          </div>
-
-          <!-- Outcome Decision Box -->
-          <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
-            <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center">
-              <i class="fa-solid fa-pen-to-square text-cyan-400 me-2"></i> Salva Esito Chiamata
-            </h4>
-
-            <!-- Outcome Buttons -->
-            <div class="grid grid-cols-2 gap-2">
-              <button type="button" onclick="selectOutcome('Interessato')" id="btnOpt-Interessato" 
-                      class="outcome-btn bg-slate-950 hover:bg-emerald-950/60 border border-slate-800 hover:border-emerald-600 text-slate-300 hover:text-emerald-300 p-2.5 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-2">
-                <i class="fa-solid fa-thumbs-up text-emerald-400"></i>
-                <span>Interessato</span>
-              </button>
-
-              <button type="button" onclick="selectOutcome('Appuntamento Fissato')" id="btnOpt-Appuntamento Fissato" 
-                      class="outcome-btn bg-slate-950 hover:bg-cyan-950/60 border border-slate-800 hover:border-cyan-600 text-slate-300 hover:text-cyan-300 p-2.5 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-2">
-                <i class="fa-solid fa-calendar-check text-cyan-400"></i>
-                <span>App. Fissato</span>
-              </button>
-
-              <button type="button" onclick="selectOutcome('Non Risponde')" id="btnOpt-Non Risponde" 
-                      class="outcome-btn bg-slate-950 hover:bg-amber-950/60 border border-slate-800 hover:border-amber-600 text-slate-300 hover:text-amber-300 p-2.5 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-2">
-                <i class="fa-solid fa-phone-slash text-amber-400"></i>
-                <span>Non Risponde</span>
-              </button>
-
-              <button type="button" onclick="selectOutcome('Rifiutato')" id="btnOpt-Rifiutato" 
-                      class="outcome-btn bg-slate-950 hover:bg-rose-950/60 border border-slate-800 hover:border-rose-600 text-slate-300 hover:text-rose-300 p-2.5 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-2">
-                <i class="fa-solid fa-ban text-rose-400"></i>
-                <span>Rifiutato</span>
-              </button>
-            </div>
-
-            <!-- Setter Notes -->
             <div>
-              <label class="block text-[11px] text-slate-400 mb-1">Note del Setter (Opzionale)</label>
-              <textarea id="setterNotes" rows="2" placeholder="Nome referente trovato, orario migliore per richiamare..." 
-                        class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"></textarea>
+                <h1 class="text-xl font-bold tracking-wide text-white">DentalSetter AI</h1>
+                <p class="text-xs text-slate-400">Assistente AI per Cold Calling & Outbound Studi Dentistici</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <div class="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                <span class="text-xs text-slate-400">Setter attivo:</span>
+                <select id="setterName" class="bg-transparent text-sm font-semibold text-blue-400 focus:outline-none cursor-pointer">
+                    <option value="Marco (Setter 1)">Marco (Setter 1)</option>
+                    <option value="Luca (Setter 2)">Luca (Setter 2)</option>
+                    <option value="Giulia (Setter 3)">Giulia (Setter 3)</option>
+                    <option value="Sara (Setter 4)">Sara (Setter 4)</option>
+                </select>
+            </div>
+            <div class="bg-emerald-950 border border-emerald-800/60 text-emerald-400 text-xs px-3 py-1.5 rounded-lg font-medium flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                DB Condiviso Attivo
+            </div>
+        </div>
+    </header>
+
+    <!-- Workspace Principale (Due Colonne) -->
+    <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-[1600px] w-full mx-auto">
+        
+        <!-- Colonna Sinistra: Chat AI & Ricerca -->
+        <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col h-[calc(100vh-140px)] shadow-xl overflow-hidden">
+            <div class="p-4 bg-slate-800/50 border-b border-slate-800 flex justify-between items-center text-xs text-slate-400">
+                <span class="flex items-center gap-1.5 text-blue-400 font-medium">
+                    <span class="w-2 h-2 rounded-full bg-blue-500"></span> Gemini AI Search Grounding: Attivo
+                </span>
+                <button onclick="resetChat()" class="hover:text-white transition">Reset Chat</button>
             </div>
 
-            <!-- Save Action Button -->
-            <button onclick="saveCurrentOutcome()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl shadow-lg shadow-emerald-600/20 transition flex items-center justify-center space-x-2 text-xs">
-              <i class="fa-solid fa-floppy-disk"></i>
-              <span>Salva Esito e Libera Scheda</span>
-            </button>
-          </div>
+            <!-- Finestra Messaggi -->
+            <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-4 text-sm">
+                <div class="flex gap-3">
+                    <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0 font-bold text-xs">AI</div>
+                    <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-4 text-slate-200 max-w-[85%] space-y-1">
+                        <p class="font-semibold text-white">Ciao Setter! Pronti per la sessione di chiamate?</p>
+                        <p class="text-slate-300 text-xs leading-relaxed">Scrivimi semplicemente la <strong>città o provincia</strong> target (es. <em>Milano, Roma, Brescia, Vlorë, Torino</em>). Cercherò sul web uno studio dentistico reale ed estrarrò la scheda contatto escludendo quelli già salvati nel Database condiviso!</p>
+                    </div>
+                </div>
+            </div>
 
+            <!-- Input Bar -->
+            <div class="p-4 bg-slate-900 border-t border-slate-800">
+                <form id="searchForm" onsubmit="handleUserSubmit(event)" class="flex gap-2">
+                    <input id="cityInput" type="text" placeholder="Scrivi una città/provincia (es. Roma, Bologna, Bari)..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 rounded-xl font-bold transition flex items-center gap-2 shadow-lg shadow-blue-600/20 shrink-0">
+                        Chiedi all'AI 🚀
+                    </button>
+                </form>
+            </div>
         </div>
-      </section>
-    </div>
 
-    <!-- VIEW 2: DATABASE CONDIVISO & HISTORIC LOGS -->
-    <div id="viewDb" class="flex-1 p-6 overflow-y-auto hidden">
-      <div class="max-w-6xl mx-auto space-y-6">
-        
-        <!-- DB Header Bar -->
-        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h2 class="text-lg font-bold text-slate-100 flex items-center">
-              <i class="fa-solid fa-database text-cyan-400 me-2"></i> Database Condiviso Setter
+        <!-- Colonna Destra: Scheda Contatto Attiva -->
+        <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col h-[calc(100vh-140px)] shadow-xl overflow-hidden p-6">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2 border-b border-slate-800 pb-3">
+                📋 SCHEDA CONTATTO ATTIVA
             </h2>
-            <p class="text-xs text-slate-400 mt-0.5">
-              Tutti i contatti già recuperati ed elaborati dai setter per evitare doppie chiamate.
-            </p>
-          </div>
-          <div class="flex items-center gap-2">
-            <button onclick="exportToCSV()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-2 rounded-xl border border-slate-700 transition flex items-center space-x-1.5">
-              <i class="fa-solid fa-file-csv"></i>
-              <span>Esporta CSV</span>
-            </button>
-            <button onclick="clearSharedDb()" class="bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 text-xs px-3 py-2 rounded-xl border border-rose-800/60 transition flex items-center space-x-1.5">
-              <i class="fa-solid fa-trash"></i>
-              <span>Svuota DB</span>
-            </button>
-          </div>
+
+            <div id="leadContainer" class="flex-1 flex flex-col justify-center items-center text-center">
+                <div class="text-slate-500 space-y-3 p-8 border-2 border-dashed border-slate-800 rounded-2xl max-w-md w-full">
+                    <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-base font-semibold text-slate-300">Nessun contatto attivo sulla scheda</h3>
+                    <p class="text-xs text-slate-500">Scrivi una città nella chat a sinistra per richiedere il primo studio dentistico da chiamare.</p>
+                </div>
+            </div>
         </div>
 
-        <!-- Search & Filter Controls -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input type="text" id="dbSearch" onkeyup="filterDbTable()" placeholder="Cerca studio, città o telefono..." 
-                 class="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
-          
-          <select id="dbFilterOutcome" onchange="filterDbTable()" class="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
-            <option value="">Tutti gli esiti</option>
-            <option value="Interessato">Interessato</option>
-            <option value="Appuntamento Fissato">Appuntamento Fissato</option>
-            <option value="Non Risponde">Non Risponde</option>
-            <option value="Rifiutato">Rifiutato</option>
-            <option value="In Attesa">In Attesa</option>
-          </select>
-        </div>
-
-        <!-- DB Table -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-          <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs text-slate-300">
-              <thead class="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
-                <tr>
-                  <th class="py-3 px-4">Data/Ora</th>
-                  <th class="py-3 px-4">Setter</th>
-                  <th class="py-3 px-4">Studio Dentistico</th>
-                  <th class="py-3 px-4">Città</th>
-                  <th class="py-3 px-4">Telefono</th>
-                  <th class="py-3 px-4">WhatsApp</th>
-                  <th class="py-3 px-4">Sito Web</th>
-                  <th class="py-3 px-4">Esito</th>
-                  <th class="py-3 px-4">Note Setter</th>
-                </tr>
-              </thead>
-              <tbody id="dbTableBody" class="divide-y divide-slate-800/60">
-                <!-- Dynamic Rows -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
     </div>
 
-  </main>
+    <!-- JavaScript Client -->
+    <script>
+        let currentLeadId = null;
 
-  <!-- Notification Toast -->
-  <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 hidden z-50">
-    <i id="toastIcon" class="fa-solid fa-circle-info text-cyan-400"></i>
-    <span id="toastMsg" class="text-xs font-medium">Messaggio notifiche</span>
-  </div>
-
-  <!-- JAVASCRIPT LOGIC -->
-  <script>
-    const DB_STORAGE_KEY = 'dental_setter_shared_db_v2';
-    let currentActiveLead = null;
-    let selectedOutcomeValue = '';
-
-    // Initialize Application
-    document.addEventListener('DOMContentLoaded', () => {
-      updateDbBadge();
-      renderDbTable();
-    });
-
-    // View Navigation
-    function switchView(view) {
-      const viewChat = document.getElementById('viewChat');
-      const viewDb = document.getElementById('viewDb');
-      const tabChatBtn = document.getElementById('tabChatBtn');
-      const tabDbBtn = document.getElementById('tabDbBtn');
-
-      if (view === 'chat') {
-        viewChat.classList.remove('hidden');
-        viewDb.classList.add('hidden');
-        tabChatBtn.className = 'px-3 py-1.5 rounded-lg font-medium transition bg-cyan-600 text-white shadow';
-        tabDbBtn.className = 'px-3 py-1.5 rounded-lg font-medium text-slate-300 hover:text-white transition';
-      } else {
-        viewChat.classList.add('hidden');
-        viewDb.classList.remove('hidden');
-        tabDbBtn.className = 'px-3 py-1.5 rounded-lg font-medium transition bg-cyan-600 text-white shadow';
-        tabChatBtn.className = 'px-3 py-1.5 rounded-lg font-medium text-slate-300 hover:text-white transition';
-        renderDbTable();
-      }
-    }
-
-    // Database Helpers
-    function getSharedDb() {
-      return JSON.parse(localStorage.getItem(DB_STORAGE_KEY) || '[]');
-    }
-
-    function saveSharedDb(db) {
-      localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(db));
-      updateDbBadge();
-    }
-
-    function updateDbBadge() {
-      const db = getSharedDb();
-      document.getElementById('dbCountBadge').innerText = db.length;
-    }
-
-    // Chat Message Helpers
-    function addChatMessage(sender, htmlContent) {
-      const chatStream = document.getElementById('chatStream');
-      const msgWrapper = document.createElement('div');
-      msgWrapper.className = `flex items-start space-x-3 max-w-2xl ${sender === 'user' ? 'ml-auto flex-row-reverse space-x-reverse' : ''}`;
-
-      const avatar = document.createElement('div');
-      if (sender === 'user') {
-        avatar.className = 'w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center text-white shrink-0 text-xs font-bold';
-        avatar.innerHTML = '<i class="fa-solid fa-user"></i>';
-      } else {
-        avatar.className = 'w-8 h-8 rounded-lg bg-cyan-600 flex items-center justify-center text-white shrink-0 text-xs font-bold';
-        avatar.innerText = 'AI';
-      }
-
-      const bubble = document.createElement('div');
-      if (sender === 'user') {
-        bubble.className = 'bg-cyan-600 text-white p-3.5 rounded-2xl rounded-tr-none text-slate-100 shadow-sm';
-      } else {
-        bubble.className = 'bg-slate-800/90 border border-slate-700/70 p-4 rounded-2xl rounded-tl-none text-slate-200 space-y-2 leading-relaxed shadow-sm';
-      }
-
-      bubble.innerHTML = htmlContent;
-      msgWrapper.appendChild(avatar);
-      msgWrapper.appendChild(bubble);
-
-      chatStream.appendChild(msgWrapper);
-      chatStream.scrollTop = chatStream.scrollHeight;
-
-      return msgWrapper;
-    }
-
-    function clearChatHistory() {
-      const chatStream = document.getElementById('chatStream');
-      chatStream.innerHTML = `
-        <div class="flex items-start space-x-3 max-w-2xl">
-          <div class="w-8 h-8 rounded-lg bg-cyan-600 flex items-center justify-center text-white shrink-0 text-xs font-bold">AI</div>
-          <div class="bg-slate-800/90 border border-slate-700/70 p-4 rounded-2xl rounded-tl-none text-slate-200 space-y-2 leading-relaxed shadow-sm">
-            <p class="font-medium text-cyan-300">Chat azzerata.</p>
-            <p class="text-xs text-slate-300">Inserisci una nuova città o provincia per continuare il lavoro di setter.</p>
-          </div>
-        </div>
-      `;
-    }
-
-    // Main AI Request Handler
-    async function handleUserSubmit(e) {
-      e.preventDefault();
-      const inputEl = document.getElementById('userInput');
-      const city = inputEl.value.trim();
-
-      if (!city) return;
-
-      inputEl.value = '';
-      addChatMessage('user', `<p class="text-xs font-medium">${city}</p>`);
-
-      const activeSetter = document.getElementById('activeSetterSelect').value;
-
-      // Loading State Message
-      const loadingMsg = addChatMessage('ai', `
-        <div class="flex items-center space-x-2 text-slate-300 text-xs">
-          <i class="fa-solid fa-circle-notch animate-spin text-cyan-400"></i>
-          <span>Ricerca in corso su Google Search per <strong>${city}</strong> ed esclusione doppioni dal DB...</span>
-        </div>
-      `);
-
-      try {
-        const lead = await fetchLeadFromGemini(city);
-
-        // Remove loading state
-        loadingMsg.remove();
-
-        currentActiveLead = {
-          id: Date.now(),
-          setter: activeSetter,
-          city: city,
-          name: lead.name || 'da chiedere',
-          phone: lead.phone || 'da chiedere',
-          whatsapp: lead.whatsapp || 'da chiedere',
-          website: lead.website || 'da chiedere',
-          email: lead.email || 'da chiedere',
-          address: lead.address || 'da chiedere',
-          outcome: 'In Attesa',
-          setterNotes: '',
-          timestamp: new Date().toLocaleString('it-IT')
-        };
-
-        // Add lead to shared DB immediately in "In Attesa" status to prevent collision
-        const db = getSharedDb();
-        db.push(currentActiveLead);
-        saveSharedDb(db);
-
-        // Response in chat
-        addChatMessage('ai', `
-          <p class="font-medium text-cyan-300">Studio trovato per ${city}:</p>
-          <p class="text-sm font-bold text-white">${currentActiveLead.name}</p>
-          <p class="text-xs text-slate-300">
-            Ho popolato la <strong>Scheda Contatto</strong> a destra con tutti i dati disponibili. 
-            Ricorda: i dati non reperiti con certezza sono segnati come <span class="text-amber-400 font-bold">"da chiedere"</span>.
-          </p>
-        `);
-
-        // Populate Right Lead Card
-        renderActiveLeadCard(currentActiveLead);
-
-      } catch (err) {
-        console.error(err);
-        loadingMsg.remove();
-        addChatMessage('ai', `
-          <p class="text-rose-400 font-medium text-xs">
-            <i class="fa-solid fa-triangle-exclamation me-1"></i>
-            Non sono riuscito a reperire nuovi contatti per "${city}". Riprova o specifica una provincia diversa.
-          </p>
-        `);
-      }
-    }
-
-    // Call Gemini API with Google Search Grounding
-    async function fetchLeadFromGemini(city) {
-      const db = getSharedDb();
-      const excludedNames = db.map(item => item.name).filter(n => n !== 'da chiedere');
-
-      const apiKey = ""; // Automatic environment runtime key
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-
-      const systemInstruction = `Sei un assistente AI B2B specializzato nel settore degli studi dentistici e odontoiatrici in Italia e Europa.
-Devi estrarre I DATI REALI di UN SINGOLO studio dentistico operativo nella città o provincia richiesta.
-
-CAMPI RICHIESTI:
-- name: Nome esatto dello studio/dentista
-- phone: Numero di telefono fisso o principale
-- whatsapp: Numero mobile WhatsApp (se verificato) oppure "da chiedere"
-- website: URL del sito web commerciale o "da chiedere"
-- email: Indirizzo email pubblico o "da chiedere"
-- address: Indirizzo (via e civico) o "da chiedere"
-
-REGOLE TASSATIVE:
-1. Per qualsiasi dato mancante, incerto o non verificato sul web, imposta TASSATIVAMENTE la stringa "da chiedere".
-2. NON inventare mai numeri di telefono, email o URL.
-3. Restituisci ESCLUSIVAMENTE un oggetto JSON con questa struttura.`;
-
-      const prompt = `Trova 1 studio dentistico a "${city}". 
-ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(excludedNames.slice(-40))}.`;
-
-      const payload = {
-        contents: [{ parts: [{ text: prompt }] }],
-        tools: [{ "google_search": {} }],
-        systemInstruction: { parts: [{ text: systemInstruction }] },
-        generationConfig: { responseMimeType: "application/json" }
-      };
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      if (!rawText) throw new Error("Nessuna risposta da Gemini");
-
-      return JSON.parse(rawText);
-    }
-
-    // Render Active Lead Card
-    function renderActiveLeadCard(lead) {
-      document.getElementById('leadEmptyState').classList.add('hidden');
-      document.getElementById('leadActiveContent').classList.remove('hidden');
-      document.getElementById('leadStatusTag').classList.remove('hidden');
-
-      document.getElementById('leadCityBadge').innerText = lead.city;
-      document.getElementById('leadName').innerText = lead.name;
-      document.getElementById('leadAddress').innerHTML = `<i class="fa-solid fa-location-dot text-slate-500 me-1.5 shrink-0"></i> ${formatFieldValue(lead.address)}`;
-
-      // Fields
-      renderField('fieldPhone', 'linkPhone', lead.phone, 'tel:', false);
-      renderField('fieldWhatsapp', 'linkWhatsapp', lead.whatsapp, 'https://wa.me/', true);
-      renderField('fieldWebsite', 'linkWebsite', lead.website, '', false);
-      renderField('fieldEmail', 'linkEmail', lead.email, 'mailto:', false);
-
-      // Reset selection
-      selectedOutcomeValue = '';
-      document.getElementById('setterNotes').value = '';
-      document.querySelectorAll('.outcome-btn').forEach(btn => {
-        btn.classList.remove('ring-2', 'ring-cyan-500', 'bg-slate-800');
-      });
-    }
-
-    function renderField(fieldId, linkId, value, hrefPrefix, isWa) {
-      const fieldEl = document.getElementById(fieldId);
-      const linkEl = document.getElementById(linkId);
-
-      fieldEl.innerHTML = formatFieldValue(value);
-
-      if (value && value !== 'da chiedere') {
-        linkEl.classList.remove('hidden');
-        if (isWa) {
-          const cleanWa = value.replace(/[^0-9]/g, '');
-          linkEl.href = `${hrefPrefix}${cleanWa}`;
-        } else if (hrefPrefix) {
-          linkEl.href = `${hrefPrefix}${value.replace(/\s+/g, '')}`;
-        } else {
-          linkEl.href = value.startsWith('http') ? value : `https://${value}`;
+        function resetChat() {
+            document.getElementById('chatMessages').innerHTML = `
+                <div class="flex gap-3">
+                    <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0 font-bold text-xs">AI</div>
+                    <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-4 text-slate-200 max-w-[85%] space-y-1">
+                        <p class="font-semibold text-white">Chat resettata. Pronti per una nuova sessione!</p>
+                    </div>
+                </div>
+            `;
+            document.getElementById('leadContainer').innerHTML = `
+                <div class="text-slate-500 space-y-3 p-8 border-2 border-dashed border-slate-800 rounded-2xl max-w-md w-full">
+                    <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto text-slate-400">
+                        📞
+                    </div>
+                    <h3 class="text-base font-semibold text-slate-300">Nessun contatto attivo sulla scheda</h3>
+                    <p class="text-xs text-slate-500">Scrivi una città nella chat a sinistra per richiedere il primo studio dentistico da chiamare.</p>
+                </div>
+            `;
+            currentLeadId = null;
         }
-      } else {
-        linkEl.classList.add('hidden');
-      }
-    }
 
-    function formatFieldValue(val) {
-      if (!val || val.toLowerCase().includes('da chiedere')) {
-        return `<span class="inline-block px-2 py-0.5 bg-rose-950/60 text-rose-300 border border-rose-800/60 text-[10px] font-bold rounded">da chiedere</span>`;
-      }
-      return val;
-    }
+        async function handleUserSubmit(event) {
+            event.preventDefault();
+            const input = document.getElementById('cityInput');
+            const city = input.value.trim();
+            const setterName = document.getElementById('setterName').value;
 
-    // Outcome Selection
-    function selectOutcome(outcome) {
-      selectedOutcomeValue = outcome;
-      document.querySelectorAll('.outcome-btn').forEach(btn => {
-        btn.classList.remove('ring-2', 'ring-cyan-500', 'bg-slate-800');
-      });
+            if (!city) return;
 
-      const activeBtn = document.getElementById(`btnOpt-${outcome}`);
-      if (activeBtn) {
-        activeBtn.classList.add('ring-2', 'ring-cyan-500', 'bg-slate-800');
-      }
-    }
+            const chatMessages = document.getElementById('chatMessages');
 
-    // Save Outcome and Reset
-    function saveCurrentOutcome() {
-      if (!currentActiveLead) return;
+            // Aggiungi messaggio utente in chat
+            chatMessages.innerHTML += `
+                <div class="flex gap-3 justify-end">
+                    <div class="bg-blue-600 text-white rounded-2xl p-3 max-w-[85%] text-sm">
+                        ${city}
+                    </div>
+                    <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center shrink-0 font-bold text-xs">👤</div>
+                </div>
+            `;
+            input.value = '';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
 
-      if (!selectedOutcomeValue) {
-        showToast('Seleziona un esito prima di salvare.', 'error');
-        return;
-      }
+            // Messaggio di caricamento AI
+            const loadingId = 'loading-' + Date.now();
+            chatMessages.innerHTML += `
+                <div id="${loadingId}" class="flex gap-3">
+                    <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0 font-bold text-xs">AI</div>
+                    <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-4 text-slate-300 text-xs animate-pulse">
+                        Sto cercando un nuovo studio dentistico a ${city} verificando sul web e escludendo i già contattati...
+                    </div>
+                </div>
+            `;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
 
-      const notes = document.getElementById('setterNotes').value.trim();
+            try {
+                const res = await fetch('/api/next-lead', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ city, setterName })
+                });
 
-      // Update in Shared DB
-      let db = getSharedDb();
-      const index = db.findIndex(item => item.id === currentActiveLead.id);
-      
-      if (index !== -1) {
-        db[index].outcome = selectedOutcomeValue;
-        db[index].setterNotes = notes || 'Nessuna nota';
-        saveSharedDb(db);
-      }
+                const data = await res.json();
+                document.getElementById(loadingId).remove();
 
-      // Notify in Chat
-      addChatMessage('ai', `
-        <p class="text-xs text-emerald-400 font-semibold">
-          <i class="fa-solid fa-circle-check me-1"></i>
-          Esito "${selectedOutcomeValue}" salvato per <strong>${currentActiveLead.name}</strong>.
-        </p>
-      `);
+                if (data.error) {
+                    chatMessages.innerHTML += `
+                        <div class="flex gap-3">
+                            <div class="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center shrink-0 font-bold text-xs">AI</div>
+                            <div class="bg-red-950/80 border border-red-800 rounded-2xl p-4 text-red-200 text-xs">
+                                ⚠️ ${data.error}
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
 
-      showToast(`Esito "${selectedOutcomeValue}" salvato con successo!`, 'success');
+                // Mostra successo in chat
+                chatMessages.innerHTML += `
+                    <div class="flex gap-3">
+                        <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0 font-bold text-xs">AI</div>
+                        <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-4 text-slate-200 text-xs space-y-1">
+                            <p class="font-semibold text-white">Trovato contatto per ${city}:</p>
+                            <p class="text-blue-400 font-bold">${data.lead.name}</p>
+                        </div>
+                    </div>
+                `;
+                chatMessages.scrollTop = chatMessages.scrollHeight;
 
-      // Reset Active Card
-      currentActiveLead = null;
-      document.getElementById('leadActiveContent').classList.add('hidden');
-      document.getElementById('leadStatusTag').classList.add('hidden');
-      document.getElementById('leadEmptyState').classList.remove('hidden');
-    }
+                // Renderizza la scheda a destra
+                renderLeadCard(data.lead);
 
-    // Render Database Table
-    function renderDbTable() {
-      const db = getSharedDb();
-      const tbody = document.getElementById('dbTableBody');
-      tbody.innerHTML = '';
+            } catch (err) {
+                document.getElementById(loadingId).remove();
+                alert('Errore di connessione al server.');
+            }
+        }
 
-      if (db.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-500">Nessun contatto registrato nel Database Condiviso.</td></tr>`;
-        return;
-      }
+        function renderLeadCard(lead) {
+            currentLeadId = lead.id;
+            const container = document.getElementById('leadContainer');
+            container.innerHTML = `
+                <div class="w-full h-full flex flex-col justify-between text-left bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-inner">
+                    <div class="space-y-6">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span class="text-xs bg-blue-950 text-blue-400 border border-blue-800 px-3 py-1 rounded-full font-semibold">📍 Città: ${lead.city}</span>
+                                <h3 class="text-2xl font-extrabold text-white mt-3">${lead.name}</h3>
+                            </div>
+                            <span class="text-xs bg-amber-950 text-amber-400 border border-amber-800 px-3 py-1 rounded-full font-bold uppercase tracking-wider">${lead.status}</span>
+                        </div>
 
-      db.slice().reverse().forEach(item => {
-        const tr = document.createElement('tr');
-        tr.className = 'hover:bg-slate-900/60 transition';
-        tr.innerHTML = `
-          <td class="py-3 px-4 font-mono text-[10px] text-slate-400">${item.timestamp}</td>
-          <td class="py-3 px-4 font-medium text-slate-300">${item.setter || 'Marco'}</td>
-          <td class="py-3 px-4 font-bold text-slate-100">${item.name}</td>
-          <td class="py-3 px-4 text-cyan-400">${item.city}</td>
-          <td class="py-3 px-4 font-mono text-slate-300">${item.phone}</td>
-          <td class="py-3 px-4 font-mono text-slate-300">${item.whatsapp}</td>
-          <td class="py-3 px-4 text-slate-400 truncate max-w-[120px]">${item.website}</td>
-          <td class="py-3 px-4">
-            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${getBadgeStyle(item.outcome)}">
-              ${item.outcome}
-            </span>
-          </td>
-          <td class="py-3 px-4 text-slate-400 max-w-xs truncate">${item.setterNotes || '-'}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                                <span class="text-xs text-slate-400 block mb-1">📞 Telefono</span>
+                                <span class="text-base font-semibold text-white select-all">${lead.phone}</span>
+                            </div>
+                            <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                                <span class="text-xs text-slate-400 block mb-1">💬 WhatsApp</span>
+                                <span class="text-base font-semibold text-emerald-400 select-all">${lead.whatsapp}</span>
+                            </div>
+                            <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                                <span class="text-xs text-slate-400 block mb-1">🌐 Sito Web</span>
+                                <a href="${lead.website.startsWith('http') ? lead.website : 'https://' + lead.website}" target="_blank" class="text-blue-400 hover:underline truncate block text-sm font-medium">${lead.website}</a>
+                            </div>
+                            <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                                <span class="text-xs text-slate-400 block mb-1">✉️ Email</span>
+                                <span class="text-base font-semibold text-white select-all">${lead.email}</span>
+                            </div>
+                        </div>
+                    </div>
 
-    function getBadgeStyle(outcome) {
-      switch (outcome) {
-        case 'Interessato': return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
-        case 'Appuntamento Fissato': return 'bg-cyan-950 text-cyan-300 border border-cyan-800';
-        case 'Non Risponde': return 'bg-amber-950 text-amber-300 border border-amber-800';
-        case 'Rifiutato': return 'bg-rose-950 text-rose-300 border border-rose-800';
-        default: return 'bg-slate-800 text-slate-400 border border-slate-700';
-      }
-    }
+                    <!-- Sezione Esiti Chiamata -->
+                    <div class="pt-6 border-t border-slate-800 space-y-3">
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Registra Esito Chiamata:</p>
+                        <div class="grid grid-cols-3 gap-3">
+                            <button onclick="saveOutcome('preso_appuntamento')" class="bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 px-4 rounded-xl font-bold text-xs transition shadow-lg shadow-emerald-600/20">
+                                ✅ Appuntamento
+                            </button>
+                            <button onclick="saveOutcome('richiama')" class="bg-amber-600 hover:bg-amber-500 text-white py-2.5 px-4 rounded-xl font-bold text-xs transition shadow-lg shadow-amber-600/20">
+                                🔄 Da Richiamare
+                            </button>
+                            <button onclick="saveOutcome('non_interessato')" class="bg-rose-600 hover:bg-rose-500 text-white py-2.5 px-4 rounded-xl font-bold text-xs transition shadow-lg shadow-rose-600/20">
+                                ❌ Non Interessato
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
 
-    function filterDbTable() {
-      const q = document.getElementById('dbSearch').value.toLowerCase();
-      const outcomeFilter = document.getElementById('dbFilterOutcome').value;
-      const rows = document.querySelectorAll('#dbTableBody tr');
-
-      rows.forEach(row => {
-        const text = row.innerText.toLowerCase();
-        const matchesQuery = text.includes(q);
-        const matchesOutcome = !outcomeFilter || text.includes(outcomeFilter.toLowerCase());
-        row.style.display = (matchesQuery && matchesOutcome) ? '' : 'none';
-      });
-    }
-
-    function clearSharedDb() {
-      if (confirm('Sei sicuro di voler azzerare il database condiviso dei setter?')) {
-        saveSharedDb([]);
-        renderDbTable();
-        showToast('Database svuotato.', 'info');
-      }
-    }
-
-    function exportToCSV() {
-      const db = getSharedDb();
-      if (db.length === 0) return showToast('Nessun dato da esportare.', 'error');
-
-      const headers = ['Data', 'Setter', 'Studio', 'Citta', 'Telefono', 'WhatsApp', 'Sito Web', 'Email', 'Esito', 'Note'];
-      const rows = db.map(i => [
-        `"${i.timestamp}"`, `"${i.setter}"`, `"${i.name.replace(/"/g, '""')}"`, `"${i.city}"`,
-        `"${i.phone}"`, `"${i.whatsapp}"`, `"${i.website}"`, `"${i.email}"`, `"${i.outcome}"`, `"${(i.setterNotes||'').replace(/"/g, '""')}"`
-      ]);
-
-      const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
-      link.setAttribute('download', `Setter_Leads_Export_${new Date().toISOString().slice(0,10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-
-    function showToast(msg, type = 'info') {
-      const toast = document.getElementById('toast');
-      const toastMsg = document.getElementById('toastMsg');
-      const toastIcon = document.getElementById('toastIcon');
-
-      toastMsg.innerText = msg;
-      toastIcon.className = type === 'error' ? 'fa-solid fa-triangle-exclamation text-rose-400' : 
-                            type === 'success' ? 'fa-solid fa-circle-check text-emerald-400' : 
-                            'fa-solid fa-circle-info text-cyan-400';
-
-      toast.classList.remove('hidden');
-      setTimeout(() => toast.classList.add('hidden'), 3500);
-    }
-  </script>
+        async function saveOutcome(status) {
+            if (!currentLeadId) return;
+            try {
+                const res = await fetch('/api/save-outcome', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contactId: currentLeadId, status, notes: '' })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Esito salvato con successo nel DB condiviso!');
+                }
+            } catch (err) {
+                alert('Errore durante il salvataggio.');
+            }
+        }
+    </script>
 </body>
 </html>
