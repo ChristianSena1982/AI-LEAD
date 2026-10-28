@@ -27,42 +27,7 @@ db.exec(`
   )
 `);
 
-// Modelli in ordine di velocità di risposta
-const MODELS = ['gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-3.8-flash'];
-
-// Funzione ultra-veloce per interrogare Gemini con timeout a 5 secondi e fallback automatico
-async function fetchGeminiFast(apiKey, prompt, systemInstruction) {
-  for (const model of MODELS) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000); // Max 5 secondi per tentativo
-
-    try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          generationConfig: { responseMimeType: "application/json" }
-        }),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timer);
-      const data = await res.json();
-
-      if (!data.error && data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-        return data; // Trovato al primo colpo!
-      }
-    } catch (err) {
-      clearTimeout(timer);
-      // Se va in timeout o errore, passa immediatamente al modello successivo
-    }
-  }
-  throw new Error("Tutti i server dell'AI sono momentaneamente occupati. Riprova tra un istante.");
-}
-
-// ENDPOINT 1: Ricerca rapida lead
+// ENDPOINT 1: Trova il prossimo contatto (Diretto, senza filtri di tempo)
 app.post('/api/next-lead', async (req, res) => {
   try {
     const { city, setterName } = req.body;
@@ -100,7 +65,28 @@ REGOLE TASSATIVE:
     const prompt = `Trova 1 studio dentistico a "${city}". 
 ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existingList.slice(-40))}.`;
 
-    const geminiData = await fetchGeminiFast(GEMINI_API_KEY, prompt, systemInstruction);
+    // Chiamata diretta e pulita a gemini-1.5-flash
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        generationConfig: { responseMimeType: "application/json" }
+      })
+    });
+
+    const geminiData = await geminiRes.json();
+    
+    if (geminiData.error) {
+      console.error('Errore Gemini API:', geminiData.error);
+      return res.status(500).json({ error: geminiData.error.message });
+    }
+
+    if (!geminiData.candidates || !geminiData.candidates[0].content) {
+      return res.status(500).json({ error: 'Nessun contatto trovato per questa città.' });
+    }
+
     const responseText = geminiData.candidates[0].content.parts[0].text.trim();
     const leadData = JSON.parse(responseText);
 
