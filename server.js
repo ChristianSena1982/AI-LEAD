@@ -26,7 +26,37 @@ db.exec(`
   )
 `);
 
-// ENDPOINT 1: Trova il prossimo contatto con il modello ufficiale richiesto da Google
+// Lista di modelli gratuiti in rotazione automatica per evitare il blocco High Demand
+const MODELS_TO_TRY = ['gemini-1.5-flash', 'gemini-3.8-flash', 'gemini-2.5-flash'];
+
+async function callGeminiFast(apiKey, prompt, systemInstruction) {
+  for (const model of MODELS_TO_TRY) {
+    try {
+      const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          generationConfig: { responseMimeType: "application/json" }
+        })
+      });
+
+      const geminiData = await geminiRes.json();
+      
+      // Se non ci sono errori e abbiamo una risposta valida, la restituiamo subito
+      if (!geminiData.error && geminiData.candidates && geminiData.candidates[0]?.content) {
+        return geminiData;
+      }
+      console.warn(`Modello ${model} occupato, provo il successivo...`);
+    } catch (err) {
+      console.warn(`Errore con ${model}:`, err.message);
+    }
+  }
+  throw new Error("I server Google sono momentaneamente sovraccarichi. Riprova tra un istante.");
+}
+
+// ENDPOINT 1: Trova il prossimo contatto
 app.post('/api/next-lead', async (req, res) => {
   try {
     const { city, setterName } = req.body;
@@ -63,27 +93,7 @@ REGOLE TASSATIVE:
     const prompt = `Trova 1 studio dentistico a "${city}". 
 ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existingList.slice(-40))}.`;
 
-    // Utilizzo rigoroso del modello imposto da Google
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        systemInstruction: { parts: [{ text: systemInstruction }] },
-        generationConfig: { responseMimeType: "application/json" }
-      })
-    });
-
-    const geminiData = await geminiRes.json();
-    
-    if (geminiData.error) {
-      console.error('Errore Gemini API:', geminiData.error);
-      return res.status(500).json({ error: geminiData.error.message });
-    }
-
-    if (!geminiData.candidates || !geminiData.candidates[0].content) {
-      return res.status(500).json({ error: 'Nessun contatto trovato per questa città.' });
-    }
+    const geminiData = await callGeminiFast(GEMINI_API_KEY, prompt, systemInstruction);
 
     const responseText = geminiData.candidates[0].content.parts[0].text.trim();
     const leadData = JSON.parse(responseText);
