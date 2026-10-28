@@ -20,7 +20,8 @@ db.exec(`
     whatsapp TEXT,
     website TEXT,
     email TEXT,
-    status TEXT DEFAULT 'da_chiamare',
+    address TEXT,
+    status TEXT DEFAULT 'In Attesa',
     outcomeNotes TEXT,
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
   )
@@ -38,42 +39,37 @@ app.post('/api/next-lead', async (req, res) => {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
     // Recupera i contatti già salvati per escluderli
-    const stmtExisting = db.prepare('SELECT name, phone FROM contacts WHERE LOWER(city) = LOWER(?)');
+    const stmtExisting = db.prepare('SELECT name FROM contacts WHERE LOWER(city) = LOWER(?)');
     const existingContacts = stmtExisting.all(city);
-    const existingList = existingContacts.map(c => `${c.name} (${c.phone})`).join(', ');
+    const existingList = existingContacts.map(c => c.name).filter(n => n !== 'da chiedere');
 
-    const prompt = `
-Sei un assistente B2B per un team di vendita. Trova un reale e verificato studio dentistico/dentista situato a/in "${city}".
+    const systemInstruction = `Sei un assistente AI B2B specializzato nel settore degli studi dentistici e odontoiatrici.
+Devi estrarre I DATI REALI di UN SINGOLO studio dentistico operativo nella città o provincia richiesta.
 
-IMPORTANTE - ESCLUSIONI DA NON RIPETERE:
-Non restituire NESSUNO di questi studi già contattati:
-[${existingList || 'Nessuno finora'}]
+CAMPI RICHIESTI:
+- name: Nome esatto dello studio/dentista
+- phone: Numero di telefono fisso o principale
+- whatsapp: Numero mobile WhatsApp (se verificato) oppure "da chiedere"
+- website: URL del sito web commerciale o "da chiedere"
+- email: Indirizzo email pubblico o "da chiedere"
+- address: Indirizzo (via e civico) o "da chiedere"
 
-ISTRUZIONI DI ESTRAZIONE DATI:
-1. Trova uno studio dentistico reale ed esistente a ${city}.
-2. Per ogni campo, se il dato NON è certo, NON esiste o NON è verificato, scrivi tassativamente "da chiedere":
-   - Nome studio
-   - Telefono
-   - WhatsApp
-   - Sito web
-   - Email
+REGOLE TASSATIVE:
+1. Per qualsiasi dato mancante, incerto o non verificato sul web, imposta TASSATIVAMENTE la stringa "da chiedere".
+2. NON inventare mai numeri di telefono, email o URL.
+3. Restituisci ESCLUSIVAMENTE un oggetto JSON valido.`;
 
-Rispondi ESCLUSIVAMENTE in formato JSON valido senza testo o blocchi markdown extra:
-{
-  "name": "Nome Studio",
-  "phone": "Telefono o 'da chiedere'",
-  "whatsapp": "WhatsApp o 'da chiedere'",
-  "website": "URL o 'da chiedere'",
-  "email": "Email o 'da chiedere'"
-}
-`;
+    const prompt = `Trova 1 studio dentistico a "${city}". 
+ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existingList.slice(-40))}.`;
 
     const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        tools: [{ googleSearch: {} }]
+        tools: [{ googleSearch: {} }],
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        generationConfig: { responseMimeType: "application/json" }
       })
     });
 
@@ -85,32 +81,27 @@ Rispondi ESCLUSIVAMENTE in formato JSON valido senza testo o blocchi markdown ex
     }
 
     if (!geminiData.candidates || !geminiData.candidates[0].content) {
-      return res.status(500).json({ error: 'Risposta non valida da Gemini.' });
+      return res.status(500).json({ error: 'Nessun contatto trovato per questa città.' });
     }
 
     const responseText = geminiData.candidates[0].content.parts[0].text.trim();
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    
-    if (!jsonMatch) {
-      return res.status(500).json({ error: 'Impossibile estrarre i dati in JSON. Riprova.' });
-    }
+    const leadData = JSON.parse(responseText);
 
-    const leadData = JSON.parse(jsonMatch[0]);
-
-    // Salva nel database SQLite
+    // Salva nel database SQLite con stato iniziale "In Attesa"
     const insertStmt = db.prepare(`
-      INSERT INTO contacts (setterName, city, name, phone, whatsapp, website, email, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'da_chiamare')
+      INSERT INTO contacts (setterName, city, name, phone, whatsapp, website, email, address, status, outcomeNotes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'In Attesa', '')
     `);
 
     const result = insertStmt.run(
-      setterName || 'Anonimo',
+      setterName || 'Marco (Setter 1)',
       city,
-      leadData.name,
-      leadData.phone,
-      leadData.whatsapp,
-      leadData.website,
-      leadData.email
+      leadData.name || 'da chiedere',
+      leadData.phone || 'da chiedere',
+      leadData.whatsapp || 'da chiedere',
+      leadData.website || 'da chiedere',
+      leadData.email || 'da chiedere',
+      leadData.address || 'da chiedere'
     );
 
     const getNewLead = db.prepare('SELECT * FROM contacts WHERE id = ?');
@@ -124,7 +115,17 @@ Rispondi ESCLUSIVAMENTE in formato JSON valido senza testo o blocchi markdown ex
   }
 });
 
-// ENDPOINT 2: Registra esito
+// ENDPOINT 2: Ottieni tutti i contatti per il DB Condiviso
+app.get('/api/contacts', (req, res) => {
+  try {
+    const contacts = db.prepare('SELECT * FROM contacts ORDER BY id DESC').all();
+    res.json({ contacts });
+  } catch (error) {
+    res.status(500).json({ error: 'Errore lettura database.' });
+  }
+});
+
+// ENDPOINT 3: Registra esito chiamata
 app.post('/api/save-outcome', (req, res) => {
   try {
     const { contactId, status, notes } = req.body;
@@ -133,6 +134,16 @@ app.post('/api/save-outcome', (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Errore durante il salvataggio.' });
+  }
+});
+
+// ENDPOINT 4: Svuota DB
+app.post('/api/clear-db', (req, res) => {
+  try {
+    db.prepare('DELETE FROM contacts').run();
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Errore pulizia database.' });
   }
 });
 
