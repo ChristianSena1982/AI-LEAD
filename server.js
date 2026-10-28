@@ -26,7 +26,7 @@ db.exec(`
   )
 `);
 
-// ENDPOINT 1: Trova il prossimo contatto reale, rigoroso e senza dati inventati
+// ENDPOINT 1: Trova il prossimo contatto in modo ultrarapido
 app.post('/api/next-lead', async (req, res) => {
   try {
     const { city, setterName } = req.body;
@@ -57,22 +57,33 @@ CAMPI RICHIESTI (formato JSON rigoroso):
 - address: Indirizzo (via e civico) della città
 
 REGOLE TASSATIVE:
-1. VIETATO INVENTARE DATI. Se un numero di telefono, un sito o un'email non sono verificati con certezza assoluta, devi scrivere tassativamente "da chiedere".
+1. VIETATO INVENTARE DATI. Se un numero di telefono, un sito o un'email non sono verificati con certezza assoluta, scrivi "da chiedere".
 2. Restituisci ESCLUSIVAMENTE un oggetto JSON valido.`;
 
     const prompt = `Fornisci i dati reali di 1 studio dentistico a "${city}". 
 ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existingList.slice(-40))}.`;
 
-    // Utilizzo rigoroso del modello corretto gemini-3.8-flash
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        systemInstruction: { parts: [{ text: systemInstruction }] },
-        generationConfig: { responseMimeType: "application/json" }
-      })
-    });
+    // Controller per imporre un timeout massimo di 4 secondi ed evitare blocchi
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+
+    let geminiRes;
+    try {
+      geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          generationConfig: { responseMimeType: "application/json" }
+        }),
+        signal: controller.signal
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      return res.status(504).json({ error: "L'AI ha impiegato troppo tempo a rispondere. Riprova subito." });
+    }
+    clearTimeout(timer);
 
     const geminiData = await geminiRes.json();
     
