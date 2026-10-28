@@ -7,7 +7,6 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static('public'));
 
-// Inizializza il Database SQLite locale
 const db = new Database('leads.db');
 
 db.exec(`
@@ -27,7 +26,7 @@ db.exec(`
   )
 `);
 
-// ENDPOINT 1: Trova il prossimo contatto (Diretto, senza filtri di tempo)
+// ENDPOINT 1: Trova il prossimo contatto (Puntato su v1 e gemini-2.5-flash)
 app.post('/api/next-lead', async (req, res) => {
   try {
     const { city, setterName } = req.body;
@@ -41,7 +40,6 @@ app.post('/api/next-lead', async (req, res) => {
       return res.status(500).json({ error: 'Chiave API Gemini non configurata su Render.' });
     }
 
-    // Esclusione contatti già presenti nel DB
     const stmtExisting = db.prepare('SELECT name FROM contacts WHERE LOWER(city) = LOWER(?)');
     const existingContacts = stmtExisting.all(city);
     const existingList = existingContacts.map(c => c.name).filter(n => n !== 'da chiedere');
@@ -65,8 +63,8 @@ REGOLE TASSATIVE:
     const prompt = `Trova 1 studio dentistico a "${city}". 
 ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existingList.slice(-40))}.`;
 
-    // Chiamata diretta e pulita a gemini-1.5-flash
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    // Endpoint v1 stabile con gemini-2.5-flash
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -90,7 +88,6 @@ ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existin
     const responseText = geminiData.candidates[0].content.parts[0].text.trim();
     const leadData = JSON.parse(responseText);
 
-    // Salvataggio DB SQLite
     const insertStmt = db.prepare(`
       INSERT INTO contacts (setterName, city, name, phone, whatsapp, website, email, address, status, outcomeNotes)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'In Attesa', '')
@@ -118,7 +115,6 @@ ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existin
   }
 });
 
-// ENDPOINT 2: DB Condiviso
 app.get('/api/contacts', (req, res) => {
   try {
     const contacts = db.prepare('SELECT * FROM contacts ORDER BY id DESC').all();
@@ -128,7 +124,6 @@ app.get('/api/contacts', (req, res) => {
   }
 });
 
-// ENDPOINT 3: Esito chiamata
 app.post('/api/save-outcome', (req, res) => {
   try {
     const { contactId, status, notes } = req.body;
@@ -140,7 +135,6 @@ app.post('/api/save-outcome', (req, res) => {
   }
 });
 
-// ENDPOINT 4: Svuota DB
 app.post('/api/clear-db', (req, res) => {
   try {
     db.prepare('DELETE FROM contacts').run();
