@@ -1,27 +1,113 @@
-async function requestNextLead() {
-  const city = document.getElementById('cityInput').value.trim();
-  const setterName = document.getElementById('setterName').value;
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DentalSetter AI - Assistente Outbound</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen p-6">
+    <div class="max-w-4xl mx-auto">
+        <header class="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
+            <div>
+                <h1 class="text-2xl font-bold text-blue-400">DentalSetter AI</h1>
+                <p class="text-sm text-slate-400">Assistente AI per Cold Calling & Outbound Studi Dentistici</p>
+            </div>
+            <div>
+                <label class="text-xs text-slate-400 block mb-1">Setter attivo:</label>
+                <input id="setterName" type="text" value="Marco (Setter 1)" class="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded text-sm text-white">
+            </div>
+        </header>
 
-  if (!city) return alert('Inserisci una città!');
+        <!-- Barra di ricerca -->
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 mb-6 flex gap-3">
+            <input id="cityInput" type="text" placeholder="Inserisci città o provincia (es. Roma, Milano, Bari)..." class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500">
+            <button onclick="requestNextLead()" class="bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded-lg font-bold transition flex items-center gap-2">
+                Chiedi all'AI 🚀
+            </button>
+        </div>
 
-  try {
-    const res = await fetch('/api/next-lead', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ city, setterName })
-    });
+        <!-- Scheda Contatto Attivo -->
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-6 min-h-[300px]">
+            <h2 class="text-lg font-semibold mb-4 text-slate-300 border-b border-slate-700 pb-2">📋 SCHEDA CONTATTO ATTIVA</h2>
+            
+            <div id="leadContainer">
+                <div class="text-center text-slate-500 py-16">
+                    <p class="text-lg">Nessun contatto attivo sulla scheda</p>
+                    <p class="text-sm">Scrivi una città nella barra in alto per richiedere il primo studio dentistico da chiamare.</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    const data = await res.json();
+    <!-- Script JavaScript corretto e racchiuso nei tag script -->
+    <script>
+        async function requestNextLead() {
+            const city = document.getElementById('cityInput').value.trim();
+            const setterName = document.getElementById('setterName').value;
 
-    if (data.error) {
-      alert(`Errore: ${data.error}`);
-      return;
-    }
+            if (!city) {
+                alert('Inserisci una città o provincia!');
+                return;
+            }
 
-    // Mostra la scheda del contatto estratto
-    renderLeadCard(data.lead);
+            const container = document.getElementById('leadContainer');
+            container.innerHTML = `<div class="text-center text-blue-400 py-16 animate-pulse">Sto interrogando Gemini e cercando nuovi studi dentistici a ${city}...</div>`;
 
-  } catch (err) {
-    alert('Errore di connessione al server.');
-  }
-}
+            try {
+                const res = await fetch('/api/next-lead', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ city, setterName })
+                });
+
+                const data = await res.json();
+
+                if (data.error) {
+                    container.innerHTML = `<div class="text-center text-red-400 py-16">Errore: ${data.error}</div>`;
+                    return;
+                }
+
+                renderLeadCard(data.lead);
+
+            } catch (err) {
+                container.innerHTML = `<div class="text-center text-red-400 py-16">Errore di connessione al server.</div>`;
+            }
+        }
+
+        function renderLeadCard(lead) {
+            const container = document.getElementById('leadContainer');
+            container.innerHTML = `
+                <div class="bg-slate-900 p-6 rounded-lg border border-slate-700 space-y-4">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-xs bg-blue-900 text-blue-200 px-2 py-1 rounded">Città: ${lead.city}</span>
+                            <h3 class="text-2xl font-bold text-white mt-2">${lead.name}</h3>
+                        </div>
+                        <span class="text-xs bg-amber-900 text-amber-200 px-2.5 py-1 rounded font-semibold uppercase">${lead.status}</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-800">
+                        <div class="bg-slate-800 p-3 rounded">
+                            <span class="text-xs text-slate-400 block">📞 Telefono</span>
+                            <span class="text-lg font-medium text-white">${lead.phone}</span>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded">
+                            <span class="text-xs text-slate-400 block">💬 WhatsApp</span>
+                            <span class="text-lg font-medium text-white">${lead.whatsapp}</span>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded">
+                            <span class="text-xs text-slate-400 block">🌐 Sito Web</span>
+                            <a href="${lead.website.startsWith('http') ? lead.website : '#'}" target="_blank" class="text-blue-400 hover:underline truncate block">${lead.website}</a>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded">
+                            <span class="text-xs text-slate-400 block">✉️ Email</span>
+                            <span class="text-lg font-medium text-white">${lead.email}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
