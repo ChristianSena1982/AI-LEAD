@@ -27,34 +27,41 @@ db.exec(`
   )
 `);
 
-// Funzione helper per chiamare Gemini con fallback automatico sui modelli in caso di sovraccarico
+// Pausa di cortesia per evitare rate-limit estremi
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Funzione helper robusta con rotazione e retry
 async function callGeminiWithFallback(apiKey, prompt, systemInstruction) {
-  // Tentativo 1: gemini-3.8-flash
-  let modelsToTry = ['gemini-3.8-flash', 'gemini-1.5-flash', 'gemini-2.5-flash'];
+  const modelsToTry = ['gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-3.8-flash'];
 
-  for (const model of modelsToTry) {
-    try {
-      const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          generationConfig: { responseMimeType: "application/json" }
-        })
-      });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    for (const model of modelsToTry) {
+      try {
+        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+            generationConfig: { responseMimeType: "application/json" }
+          })
+        });
 
-      const geminiData = await geminiRes.json();
-      
-      if (!geminiData.error) {
-        return geminiData; // Successo!
+        const geminiData = await geminiRes.json();
+        
+        if (!geminiData.error) {
+          return geminiData;
+        }
+        console.warn(`Modello ${model} occupato, provo il prossimo...`);
+      } catch (err) {
+        console.warn(`Errore con ${model}:`, err.message);
       }
-      console.warn(`Modello ${model} occupato o non disponibile, provo il successivo...`, geminiData.error.message);
-    } catch (err) {
-      console.warn(`Errore con il modello ${model}:`, err.message);
     }
+    // Se tutti falliscono al primo giro, aspetta 1.2 secondi e riprova una volta
+    await sleep(1200);
   }
-  throw new Error("Tutti i modelli Gemini sono attualmente sovraccarichi. Riprova tra pochi secondi.");
+
+  throw new Error("L'AI è momentaneamente occupata. Riprova tra 2 secondi.");
 }
 
 // ENDPOINT 1: Trova il prossimo contatto tramite Gemini API
@@ -95,7 +102,6 @@ REGOLE TASSATIVE:
     const prompt = `Trova 1 studio dentistico a "${city}". 
 ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existingList.slice(-40))}.`;
 
-    // Chiamata protetta con fallback automatico
     const geminiData = await callGeminiWithFallback(GEMINI_API_KEY, prompt, systemInstruction);
 
     if (!geminiData.candidates || !geminiData.candidates[0].content) {
