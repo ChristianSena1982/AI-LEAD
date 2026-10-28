@@ -27,44 +27,42 @@ db.exec(`
   )
 `);
 
-// Pausa di cortesia per evitare rate-limit estremi
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+// Modelli in ordine di velocità di risposta
+const MODELS = ['gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-3.8-flash'];
 
-// Funzione helper robusta con rotazione e retry
-async function callGeminiWithFallback(apiKey, prompt, systemInstruction) {
-  const modelsToTry = ['gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-3.8-flash'];
+// Funzione ultra-veloce per interrogare Gemini con timeout a 5 secondi e fallback automatico
+async function fetchGeminiFast(apiKey, prompt, systemInstruction) {
+  for (const model of MODELS) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000); // Max 5 secondi per tentativo
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    for (const model of modelsToTry) {
-      try {
-        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            systemInstruction: { parts: [{ text: systemInstruction }] },
-            generationConfig: { responseMimeType: "application/json" }
-          })
-        });
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          generationConfig: { responseMimeType: "application/json" }
+        }),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timer);
+      const data = await res.json();
 
-        const geminiData = await geminiRes.json();
-        
-        if (!geminiData.error) {
-          return geminiData;
-        }
-        console.warn(`Modello ${model} occupato, provo il prossimo...`);
-      } catch (err) {
-        console.warn(`Errore con ${model}:`, err.message);
+      if (!data.error && data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+        return data; // Trovato al primo colpo!
       }
+    } catch (err) {
+      clearTimeout(timer);
+      // Se va in timeout o errore, passa immediatamente al modello successivo
     }
-    // Se tutti falliscono al primo giro, aspetta 1.2 secondi e riprova una volta
-    await sleep(1200);
   }
-
-  throw new Error("L'AI è momentaneamente occupata. Riprova tra 2 secondi.");
+  throw new Error("Tutti i server dell'AI sono momentaneamente occupati. Riprova tra un istante.");
 }
 
-// ENDPOINT 1: Trova il prossimo contatto tramite Gemini API
+// ENDPOINT 1: Ricerca rapida lead
 app.post('/api/next-lead', async (req, res) => {
   try {
     const { city, setterName } = req.body;
@@ -78,7 +76,7 @@ app.post('/api/next-lead', async (req, res) => {
       return res.status(500).json({ error: 'Chiave API Gemini non configurata su Render.' });
     }
 
-    // Recupera i contatti già salvati per escluderli
+    // Esclusione contatti già presenti nel DB
     const stmtExisting = db.prepare('SELECT name FROM contacts WHERE LOWER(city) = LOWER(?)');
     const existingContacts = stmtExisting.all(city);
     const existingList = existingContacts.map(c => c.name).filter(n => n !== 'da chiedere');
@@ -102,16 +100,11 @@ REGOLE TASSATIVE:
     const prompt = `Trova 1 studio dentistico a "${city}". 
 ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existingList.slice(-40))}.`;
 
-    const geminiData = await callGeminiWithFallback(GEMINI_API_KEY, prompt, systemInstruction);
-
-    if (!geminiData.candidates || !geminiData.candidates[0].content) {
-      return res.status(500).json({ error: 'Nessun contatto trovato per questa città.' });
-    }
-
+    const geminiData = await fetchGeminiFast(GEMINI_API_KEY, prompt, systemInstruction);
     const responseText = geminiData.candidates[0].content.parts[0].text.trim();
     const leadData = JSON.parse(responseText);
 
-    // Salva nel database SQLite con stato iniziale "In Attesa"
+    // Salvataggio DB SQLite
     const insertStmt = db.prepare(`
       INSERT INTO contacts (setterName, city, name, phone, whatsapp, website, email, address, status, outcomeNotes)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'In Attesa', '')
@@ -139,7 +132,7 @@ ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existin
   }
 });
 
-// ENDPOINT 2: Ottieni tutti i contatti per il DB Condiviso
+// ENDPOINT 2: DB Condiviso
 app.get('/api/contacts', (req, res) => {
   try {
     const contacts = db.prepare('SELECT * FROM contacts ORDER BY id DESC').all();
@@ -149,7 +142,7 @@ app.get('/api/contacts', (req, res) => {
   }
 });
 
-// ENDPOINT 3: Registra esito chiamata
+// ENDPOINT 3: Esito chiamata
 app.post('/api/save-outcome', (req, res) => {
   try {
     const { contactId, status, notes } = req.body;
