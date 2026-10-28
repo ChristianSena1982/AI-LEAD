@@ -65,8 +65,8 @@ REGOLE TASSATIVE:
     const prompt = `Trova 1 studio dentistico a "${city}". 
 ESCLUDI assolutamente i seguenti studi già contattati: ${JSON.stringify(existingList.slice(-40))}.`;
 
-    // Usiamo il modello standard stabile via fetch
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    // Usiamo il modello corretto gemini-2.0-flash con la struttura payload nativa
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
